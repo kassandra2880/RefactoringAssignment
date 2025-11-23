@@ -64,7 +64,9 @@ public class StatementPrinter {
         for (Performance performance : invoice.getPerformances()) {
             // print line for this order
             final String amountPercent = usd(getAmount(performance));
-            result.append(String.format("  %s: %s (%s seats)%n", getPlay(performance).getName(), amountPercent, performance.getAudience()));
+            final String playName = getPlay(performance).getName();
+            final int audience = performance.getAudience();
+            result.append(String.format("  %s: %s (%s seats)%n", playName, amountPercent, audience));
         }
 
         result.append(String.format("Amount owed is %s%n", usd(getTotalAmount())));
