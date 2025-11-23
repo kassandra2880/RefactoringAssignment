@@ -24,6 +24,34 @@ public class StatementPrinter {
         return plays;
     }
 
+    private int getAmount(Performance performance) {
+        final int audience = performance.getAudience();
+
+        int result = 0;
+        switch (getPlay(performance).getType()) {
+            case "tragedy":
+                result = Constants.TRAGEDY_BASE_AMOUNT;
+                if (audience > Constants.TRAGEDY_AUDIENCE_THRESHOLD) {
+                    final int audienceOverThreshold = audience - Constants.TRAGEDY_AUDIENCE_THRESHOLD;
+                    result += Constants.TRAGEDY_OVER_BASE_CAPACITY_PER_PERSON * audienceOverThreshold;
+                }
+                break;
+            case "comedy":
+                result = Constants.COMEDY_BASE_AMOUNT;
+                if (audience > Constants.COMEDY_AUDIENCE_THRESHOLD) {
+                    result += Constants.COMEDY_OVER_BASE_CAPACITY_AMOUNT
+                            + (Constants.COMEDY_OVER_BASE_CAPACITY_PER_PERSON
+                            * (audience - Constants.COMEDY_AUDIENCE_THRESHOLD));
+                }
+                result += Constants.COMEDY_AMOUNT_PER_AUDIENCE * audience;
+                break;
+            default:
+                throw new RuntimeException(String.format("unknown type: %s", getPlay(performance).getType()));
+        }
+
+        return result;
+    }
+
     /**
      * Returns a formatted statement of the invoice associated with this printer.
      * @return the formatted statement
@@ -37,45 +65,26 @@ public class StatementPrinter {
 
         final NumberFormat frmt = NumberFormat.getCurrencyInstance(Locale.US);
 
-        for (Performance p : invoice.getPerformances()) {
-            final Play play = plays.get(p.getPlayID());
-
-            int thisAmount = 0;
-            switch (play.getType()) {
-                case "tragedy":
-                    thisAmount = Constants.TRAGEDY_BASE_AMOUNT;
-                    if (p.getAudience() > Constants.TRAGEDY_AUDIENCE_THRESHOLD) {
-                        final int audienceOverThreshold = p.getAudience() - Constants.TRAGEDY_AUDIENCE_THRESHOLD;
-                        thisAmount += Constants.TRAGEDY_OVER_BASE_CAPACITY_PER_PERSON * audienceOverThreshold;
-                    }
-                    break;
-                case "comedy":
-                    thisAmount = Constants.COMEDY_BASE_AMOUNT;
-                    if (p.getAudience() > Constants.COMEDY_AUDIENCE_THRESHOLD) {
-                        thisAmount += Constants.COMEDY_OVER_BASE_CAPACITY_AMOUNT
-                                + (Constants.COMEDY_OVER_BASE_CAPACITY_PER_PERSON
-                                * (p.getAudience() - Constants.COMEDY_AUDIENCE_THRESHOLD));
-                    }
-                    thisAmount += Constants.COMEDY_AMOUNT_PER_AUDIENCE * p.getAudience();
-                    break;
-                default:
-                    throw new RuntimeException(String.format("unknown type: %s", play.getType()));
-            }
+        for (Performance performance : invoice.getPerformances()) {
 
             // add volume credits
-            volumeCredits += Math.max(p.getAudience() - Constants.BASE_VOLUME_CREDIT_THRESHOLD, 0);
+            volumeCredits += Math.max(performance.getAudience() - Constants.BASE_VOLUME_CREDIT_THRESHOLD, 0);
             // add extra credit for every five comedy attendees
-            if ("comedy".equals(play.getType())) {
-                volumeCredits += p.getAudience() / Constants.COMEDY_EXTRA_VOLUME_FACTOR;
+            if ("comedy".equals(getPlay(performance).getType())) {
+                volumeCredits += performance.getAudience() / Constants.COMEDY_EXTRA_VOLUME_FACTOR;
             }
 
             // print line for this order
-            final String amountPercent = frmt.format(thisAmount / Constants.PERCENT_FACTOR);
-            result.append(String.format("  %s: %s (%s seats)%n", play.getName(), amountPercent, p.getAudience()));
-            totalAmount += thisAmount;
+            final String amountPercent = frmt.format(getAmount(performance) / Constants.PERCENT_FACTOR);
+            result.append(String.format("  %s: %s (%s seats)%n", getPlay(performance).getName(), amountPercent, performance.getAudience()));
+            totalAmount += getAmount(performance);
         }
         result.append(String.format("Amount owed is %s%n", frmt.format(totalAmount / Constants.PERCENT_FACTOR)));
         result.append(String.format("You earned %s credits%n", volumeCredits));
         return result.toString();
+    }
+
+    private Play getPlay(Performance performance) {
+        return plays.get(performance.getPlayID());
     }
 }
